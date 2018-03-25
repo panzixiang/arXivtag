@@ -3,6 +3,7 @@ import time
 from bs4 import BeautifulSoup
 import sys
 import os
+import io
 
 
 def main():
@@ -16,7 +17,7 @@ def harvest_by_year(year):
     save_path = "../Data/raw"
     filename = "arXiv" + str(year) + ".xml"
     filename = os.path.join(save_path, filename)
-    f = open(filename, 'a')
+    f = io.open(filename, 'a', encoding="utf-8")
     first_url = "http://export.arxiv.org/oai2?verb=ListRecords&from=" + \
         str(year) + "-01-01&until=" + \
         str(year) + "-12-31&metadataPrefix=arXiv"
@@ -56,8 +57,8 @@ def joinxml(year):
     filename_out = "arXiv" + str(year) + "full.xml"
     filename_out = os.path.join(save_path, filename_out)
 
-    with open(filename_in, "r") as inputfile:
-        with open(filename_out, "w") as output:
+    with io.open(filename_in, "r", encoding="utf-8") as inputfile:
+        with io.open(filename_out, "w", encoding="utf-8") as output:
             for inputline in inputfile:
                 if "<?xml version" not in inputline:
                     output.write(inputline)
