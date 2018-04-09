@@ -2,7 +2,10 @@ from bs4 import BeautifulSoup
 from bs4 import SoupStrainer
 import sys
 import os
+import io
 import pickle
+
+""" This script takes in xml and splits them into lists of category and their abstracts and saves them in a pickle"""
 
 
 def main():
@@ -20,11 +23,11 @@ def process(year):
 
     strainer_abs = SoupStrainer("abstract")
 
-    soup_cat = BeautifulSoup(open(filename), "lxml", parse_only=strainer_cat)
+    soup_cat = BeautifulSoup(io.open(filename, encoding="utf-8"), "lxml", parse_only=strainer_cat)
 
     print("soup cat loaded, size: " + str(os.path.getsize(filename)) + " bytes")
 
-    soup_abs = BeautifulSoup(open(filename), "lxml", parse_only=strainer_abs)
+    soup_abs = BeautifulSoup(io.open(filename, encoding="utf-8"), "lxml", parse_only=strainer_abs)
 
     print("soup abs loaded, size: " + str(os.path.getsize(filename)) + " bytes")
 
@@ -35,7 +38,7 @@ def process(year):
 
     print()
 
-    # split individual tags and get the first as the catgory
+    # split individual tags and get the first as the category
     pri_tagset = [(taglist.split())[0] for taglist in allcats]
     # see uniques
     uniq_tagset = sorted(set(pri_tagset))
@@ -97,9 +100,7 @@ def process(year):
     for key in iter(bigcatDict.keys()):
         print(key + " " + str(len(bigcatDict[key])))
 
-    dict_path = "../Data/dict"
-    dictname = str(year) + "_big_pop.p"
-    dictname = os.path.join(dict_path, dictname)
+    dictname = "../Data/dict/" + str(year) + "2_big_pop.p"
     pickle.dump(bigcatDict, open(dictname, "wb"))
     return
 

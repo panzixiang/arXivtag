@@ -4,13 +4,18 @@ from bs4 import BeautifulSoup
 import sys
 import os
 import io
+import time
 
 
 def main():
-    print(sys.argv)
-    year = sys.argv[1]
-    harvest_by_year(year)
+    harvest_routine(2015)
+
+
+def harvest_routine(year):
+    print("---------------" + str(year) + "---------------")
+    #harvest_by_year(year)
     joinxml(year)
+    time.sleep(60)
 
 
 def harvest_by_year(year):
@@ -37,7 +42,6 @@ def harvest_by_year(year):
         next_data = urllib.request.urlopen(url).read()
         soup = BeautifulSoup(next_data, 'html.parser')
         f.write(soup.prettify())
-        f.write(soup.prettify())
         if soup.find('resumptiontoken') is not None:
             token = soup.find('resumptiontoken').text
             if token is "":
@@ -57,11 +61,16 @@ def joinxml(year):
     filename_out = "arXiv" + str(year) + "full.xml"
     filename_out = os.path.join(save_path, filename_out)
 
+    skipone = False
     with io.open(filename_in, "r", encoding="utf-8") as inputfile:
         with io.open(filename_out, "w", encoding="utf-8") as output:
             for inputline in inputfile:
+                if skipone is False:
+                    skipone = True
+                    continue
                 if "<?xml version" not in inputline:
                     output.write(inputline)
+            output.write("</html>")
     return
 
 

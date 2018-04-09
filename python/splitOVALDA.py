@@ -15,7 +15,7 @@ import math
 import os
 import time
 import gensim
-import cPickle as pickle
+import _pickle as pickle
 import numpy as np
 
 
