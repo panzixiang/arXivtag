@@ -1,46 +1,21 @@
 import os
-import _pickle as pickle
+import pickle
 import time
 import matplotlib.pyplot as plt
 import numpy as np
-from operator import add
+
 
 
 def main():
     start = time.time()
     # load pickle
-    arxiv_11 = dictload(2011)
-    arxiv_12 = dictload(2012)
-    arxiv_13 = dictload(2013)
-    arxiv_14 = dictload(2014)
-    arxiv_15 = dictload(2015)
-    arxiv_16 = dictload(2016)
-    arxiv_17 = dictload(2017)
+    arXiv_full = pickle.load(open("../Data/dict/big_pop.p", "rb"))
 
-    arxiv_list = [arxiv_11,
-                  arxiv_12,
-                  arxiv_13,
-                  arxiv_14,
-                  arxiv_15,
-                  arxiv_16,
-                  arxiv_17
-                  ]
+    arxiv_list = [arXiv_full]
+
     tr_set_names = ['astro', 'cond', 'cs', 'hep', 'math', 'physics', 'qbio', 'qfin', 'quant', 'stat']
 
     print("loaded pickles")
-
-    # build proportion matrix
-    list_of_lists = []
-    for year in arxiv_list:
-        count = []
-        for name in tr_set_names:
-            try:
-                count.append(len(year[name]))
-            except KeyError:
-                count.append(0)
-        list_of_lists.append(count)
-    array = np.array(list_of_lists)
-    print(array)
 
     # build doc set
     dict_doc_set = {}
@@ -77,7 +52,6 @@ def main():
     time_load = time.time()
     print("It took", time_load - start, "seconds to process")
     # plot_metadata(frac)
-    plot_bar(array)
 
 
 def dictload(year):
@@ -115,39 +89,6 @@ def plot_metadata(frac):
     plt.title('Training set proportions', y=1.05)
 
     plt.show()
-
-
-# stacked bar plot
-def plot_bar(motherlist):
-    # position
-    r = [0, 1, 2, 3, 4, 5, 6]
-    # Names of group and bar width
-    names = ['2011', '2012', '2013', '2014', '2015', '2016', '2017']
-    colors = ['yellowgreen', 'gold', 'lightskyblue', 'lightcoral', 'steelblue', 'seashell',
-              'wheat', 'lightskyblue', 'lightcoral', 'steelblue']
-    bar_width = 0.7
-    # first bar
-    motherlist = np.transpose(motherlist)
-    bar0 = motherlist[0]
-    height = [0] * len(bar0)
-    plt.bar(r, bar0, color=colors[0], edgecolor='black', width=bar_width)
-    for x in range(1, 10):
-        bar = motherlist[x]
-        height = np.add(motherlist[x-1], height)
-        print(height)
-        plt.bar(r, bar, bottom=height, color=colors[x], edgecolor='black', width=bar_width)
-
-    # Custom X axis
-    plt.xticks(r, names, fontweight='bold')
-    plt.xlabel("years")
-
-    # y-axis in bold
-    plt.yticks(np.arange(0, 200000, step=50000), fontweight='bold')
-    plt.ylabel("no.of articles")
-
-    # Show graphic
-    plt.show()
-
 
 if __name__ == "__main__":
     main()
