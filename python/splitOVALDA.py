@@ -1,9 +1,15 @@
+import nltk
+import math
+import os
+import time
+import gensim
+import pickle
+import numpy as np
 from nltk.tokenize import RegexpTokenizer
-from stop_words import get_stop_words
+from nltk.corpus import stopwords
 from nltk.stem.porter import PorterStemmer
 from gensim import corpora
 from sklearn import svm
-from sklearn.metrics import zero_one_loss
 from sklearn.metrics import accuracy_score
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neighbors import KNeighborsClassifier
@@ -11,12 +17,6 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import AdaBoostClassifier
 from datetime import datetime
-import math
-import os
-import time
-import gensim
-import _pickle as pickle
-import numpy as np
 
 
 def main():
@@ -24,11 +24,14 @@ def main():
     start = time.time()
     print("start ---------------------------------------------------")
 
-    arxiv_15 = dictload(2015)
+    # load test set
+    test_year = dictload(2018)
+
+    # load the rest
     intermediate_path = "../Data/Intermediate/"
-    doc_set = pickle.load(open(intermediate_path + 'doc_set.p', "rb"))
-    label_set = pickle.load(open(intermediate_path + 'label_set.p', "rb"))
-    topic_superset = pickle.load(open(intermediate_path + 'topic_superset.p', "rb"))
+    doc_set = pickle.load(open(os.path.join(intermediate_path + 'doc_set.p'), "rb"))
+    label_set = pickle.load(open(os.path.join(intermediate_path + 'label_set.p'), "rb"))
+    topic_superset = pickle.load(open(os.path.join(intermediate_path + 'topic_superset.p'), "rb"))
 
     time_load = time.time()
     print("It took", time_load-start, "seconds to load")
@@ -43,6 +46,7 @@ def main():
     num_topics_list = []
     dictionary_set = []
 
+    i = 0
     for topic_set in topic_superset:
         topic_texts = tokenize(topic_set)
 
@@ -54,10 +58,13 @@ def main():
         corpus = [dictionary.doc2bow(text) for text in topic_texts]
 
         # generate LDA model
-        num_topics = math.floor(len(topic_set)/100)
+        # number of topics is logarithmic
+        num_topics = math.floor(math.log2(topic_set))
+        print(str(i) + ' ' + "number of topics: " + str(num_topics))
         num_topics_list.append(num_topics)
         ldamodel = gensim.models.ldamodel.LdaModel(corpus, num_topics=num_topics, id2word=dictionary, passes=20)
         lda_superset.append(ldamodel)
+        i += 1
 
     print("all LDA built")
 
@@ -76,10 +83,10 @@ def main():
         prop_array_superset.append(topic_prop_array)
 
     # concat full feature array
-    trainingArray = prop_array_superset[0]
+    training_array = prop_array_superset[0]
     for i in range(len(prop_array_superset)):
         if i != 0:
-            trainingArray = np.concatenate((trainingArray, prop_array_superset[i]), axis=1)
+            training_array = np.concatenate((training_array, prop_array_superset[i]), axis=1)
 
     print("training matrix built")
     time_train = time.time()
@@ -87,18 +94,18 @@ def main():
     print("---------------------------------------------------------")
     print("testing")
 
-    # test on new data
-    test_set = arxiv_15['astro'][0:252] + arxiv_15['cond'][0:390] + \
-        arxiv_15['cs'][0:386] + arxiv_15['hep'][0:408] + \
-        arxiv_15['math'][0:866] + arxiv_15['physics'][0:380] + \
-        arxiv_15['qbio'][0:40] + arxiv_15['qfin'][0:18] + \
-        arxiv_15['quant'][0:131] + arxiv_15['stat'][0:47]
-    test_label = [1]*253 + [2]*391 + [3]*387 + [4]*409 + [5]*867 + \
-        [6]*381 + [7]*41 + [8]*18 + [9]*132 + [10]*48
+    # test on new data 1000 documents split by proportion of training data
+    test_set = test_year['astro'][0:144] + test_year['cond'][0:145] + \
+        test_year['cs'][0:125] + test_year['hep'][0:113] + \
+        test_year['math'][0:257] + test_year['physics'][0:134] + \
+        test_year['qbio'][0:13] + test_year['qfin'][0:6] + \
+        test_year['quant'][0:45] + test_year['stat'][0:17]
+    test_label = [1]*144 + [2]*145 + [3]*125 + [4]*113 + [5]*257 + \
+        [6]*134 + [7]*13 + [8]*6 + [9]*45 + [10]*17
 
     test_texts = tokenize(test_set)
 
-    # build indiv test prop array
+    # build individual test prop array
     test_prop_array_superset = []
     for i in range(len(num_topics_list)):
         num_topics = num_topics_list[i]
@@ -115,13 +122,12 @@ def main():
     # concat full test array
     test_array = test_prop_array_superset[0]
     for i in range(len(test_prop_array_superset)):
-        if (i != 0):
+        if i != 0:
             test_array = np.concatenate((test_array, test_prop_array_superset[i]), axis=1)
 
-    pickle.dump(trainingArray, open(intermediate_path + 'train_array.p', "wb"))
-    pickle.dump(test_array, open(intermediate_path + 'train_label.p', "wb"))
+    arraydump('log2_topics_', training_array, test_array)
 
-    x_train, x_test, y_train, y_test = trainingArray, test_array, label_set, test_label
+    x_train, x_test, y_train, y_test = training_array, test_array, label_set, test_label
 
     print("training_array length: " + str(len(topic_prop_array)))
     print("test_array length: " + str(len(test_prop_array)))
@@ -129,72 +135,9 @@ def main():
     print("test_label length: " + str(len(test_label)))
     print("---------------------------------------------------------")
 
-    now = datetime.now().strftime('%Y%m%d-%H%M%S')
-    save_path = "../Results/" + now
-
-    # knn3
-    knn3 = KNeighborsClassifier(n_neighbors=3)
-    knn3.fit(x_train, y_train)
-    predictions = knn3.predict(x_test)
-    np.savetxt(save_path+'splitova_knn3pred.csv', predictions.astype(int), fmt='%i', delimiter=",")
-    # print predictions
-    print('knn3')
-    print(accuracy_score(predictions, y_test))
-    print('--------------------------------')
-
-    # knn5
-    knn5 = KNeighborsClassifier(n_neighbors=5)
-    knn5.fit(x_train, y_train)
-    predictions = knn5.predict(x_test)
-    np.savetxt(save_path+'splitova_knn5pred.csv', predictions.astype(int), fmt='%i', delimiter=",")
-    # print predictions
-    print('knn5')
-    print(accuracy_score(predictions, y_test))
-    print('--------------------------------')
-
-    # svmlin
-    svmlin = svm.SVC(kernel='linear')
-    svmlin.fit(x_train, y_train)
-    predictions = svmlin.predict(x_test)
-    np.savetxt(save_path+'splitova_svmpred.csv', predictions.astype(int), fmt='%i', delimiter=",")
-    # print predictions
-    print('svmlin')
-    print(accuracy_score(predictions, y_test))
-    print('--------------------------------')
-
-    # gnb
-    gnb = GaussianNB()
-    gnb.fit(x_train, y_train)
-    predictions = gnb.predict(x_test)
-    np.savetxt(save_path+'splitova_gnbpred.csv', predictions.astype(int), fmt='%i', delimiter=",")
-    # print predictions
-    print('gnb')
-    print(accuracy_score(predictions, y_test))
-    print('--------------------------------')
-
-    # rf50
-    rf50 = RandomForestClassifier(n_estimators=50)
-    rf50.fit(x_train, y_train)
-    predictions = rf50.predict(x_test)
-    np.savetxt(save_path+'splitova_rf50pred.csv', predictions.astype(int), fmt='%i', delimiter=",")
-    # print predictions
-    print('rf50')
-    print(accuracy_score(predictions, y_test))
-    print('--------------------------------')
-
-    # dtree ada
-    ada = AdaBoostClassifier(DecisionTreeClassifier(max_depth=3),
-                             n_estimators=400,
-                             learning_rate=1,
-                             algorithm="SAMME",
-                             random_state=None)
-    ada.fit(x_train, y_train)
-    predictions = ada.predict(x_test)
-    np.savetxt(save_path+'splitova_adapred.csv', predictions.astype(int), fmt='%i', delimiter=",")
-    # print predictions
-    print('ada')
-    print(accuracy_score(predictions, y_test))
-    print('--------------------------------')
+    # choose model via a list
+    model_names = ["knn3"]
+    buildmodel(model_names, x_train, y_train, x_test, y_test)
 
     time_end = time.time()
     print("total time is ", time_end-start)
@@ -202,7 +145,7 @@ def main():
 
 def tokenize(doc_set):
     # create English stop words list
-    en_stop = get_stop_words('en')
+    en_stop = stopwords.words('english')
 
     # Create p_stemmer of class PorterStemmer
     p_stemmer = PorterStemmer()
@@ -211,10 +154,11 @@ def tokenize(doc_set):
     tokenizer = RegexpTokenizer(r'\w+')
     doc_texts = []
     # loop through document list
-    for i in doc_set:
+    for doc in doc_set:
 
+        # doc is a tuple in the form (id, category, text)
         # clean and tokenize document string
-        raw = i.lower()
+        raw = doc[2].lower()
         tokens = tokenizer.tokenize(raw)
 
         # remove stop words from tokens
@@ -236,6 +180,86 @@ def dictload(year):
 
     # load pickle
     return pickle.load(open(filename, "rb"))
+
+
+def arraydump(suffix, training_array, test_array):
+    intermediate_path = "../Data/Intermediate/"
+    pickle.dump(training_array, open(intermediate_path + suffix + 'train_array.p', "wb"), protocol=4)
+    pickle.dump(test_array, open(intermediate_path + suffix + 'test_array.p', "wb"), protocol=4)
+
+
+def buildmodel(model_names, x_train, y_train, x_test, y_test):
+    now = datetime.now().strftime('%Y%m%d-%H%M%S')
+    save_path = "../Results/" + now
+    if "knn3" in model_names:
+        # knn3
+        knn3 = KNeighborsClassifier(n_neighbors=3)
+        knn3.fit(x_train, y_train)
+        predictions = knn3.predict(x_test)
+        np.savetxt(save_path+'splitova_knn3pred.csv', predictions.astype(int), fmt='%i', delimiter=",")
+        # print predictions
+        print('knn3')
+        print(accuracy_score(predictions, y_test))
+        print('--------------------------------')
+
+    if "knn5" in model_names:
+        # knn5
+        knn5 = KNeighborsClassifier(n_neighbors=5)
+        knn5.fit(x_train, y_train)
+        predictions = knn5.predict(x_test)
+        np.savetxt(save_path+'splitova_knn5pred.csv', predictions.astype(int), fmt='%i', delimiter=",")
+        # print predictions
+        print('knn5')
+        print(accuracy_score(predictions, y_test))
+        print('--------------------------------')
+
+    if "svmlin" in model_names:
+        # svmlin
+        svmlin = svm.SVC(kernel='linear')
+        svmlin.fit(x_train, y_train)
+        predictions = svmlin.predict(x_test)
+        np.savetxt(save_path+'splitova_svmpred.csv', predictions.astype(int), fmt='%i', delimiter=",")
+        # print predictions
+        print('svmlin')
+        print(accuracy_score(predictions, y_test))
+        print('--------------------------------')
+
+    if "gnb" in model_names:
+        # gnb
+        gnb = GaussianNB()
+        gnb.fit(x_train, y_train)
+        predictions = gnb.predict(x_test)
+        np.savetxt(save_path+'splitova_gnbpred.csv', predictions.astype(int), fmt='%i', delimiter=",")
+        # print predictions
+        print('gnb')
+        print(accuracy_score(predictions, y_test))
+        print('--------------------------------')
+
+    if "rf50" in model_names:
+        # rf50
+        rf50 = RandomForestClassifier(n_estimators=50)
+        rf50.fit(x_train, y_train)
+        predictions = rf50.predict(x_test)
+        np.savetxt(save_path+'splitova_rf50pred.csv', predictions.astype(int), fmt='%i', delimiter=",")
+        # print predictions
+        print('rf50')
+        print(accuracy_score(predictions, y_test))
+        print('--------------------------------')
+
+    if "adatree" in model_names:
+        # dtree ada
+        ada = AdaBoostClassifier(DecisionTreeClassifier(max_depth=3),
+                                 n_estimators=400,
+                                 learning_rate=1,
+                                 algorithm="SAMME",
+                                 random_state=None)
+        ada.fit(x_train, y_train)
+        predictions = ada.predict(x_test)
+        np.savetxt(save_path+'splitova_adapred.csv', predictions.astype(int), fmt='%i', delimiter=",")
+        # print predictions
+        print('ada')
+        print(accuracy_score(predictions, y_test))
+        print('--------------------------------')
 
 
 if __name__ == "__main__":

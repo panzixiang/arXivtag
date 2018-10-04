@@ -2,8 +2,6 @@ import os
 import pickle
 import time
 import matplotlib.pyplot as plt
-import numpy as np
-
 
 
 def main():
@@ -51,7 +49,7 @@ def main():
     pickle.dump(topic_superset, open(intermediate_path + 'topic_superset.p', "wb"))
     time_load = time.time()
     print("It took", time_load - start, "seconds to process")
-    # plot_metadata(frac)
+    plot_metadata(frac)
 
 
 def dictload(year):

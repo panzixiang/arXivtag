@@ -30,7 +30,7 @@ def main():
     # plt.imasve('smv_confusion', cm, cmap=plt.cm.viridis)
 
 
-def plot_confusion_matrix(cm, title='Confusion matrix', cmap=plt.cm.gist_heat):
+def plot_confusion_matrix(cm, title='Confusion matrix', cmap="inferno"):
     hfont = {'fontname': 'Sans'}
     plt.imshow(cm, interpolation='nearest', cmap=cmap)
     plt.title(title, fontsize=20, **hfont)

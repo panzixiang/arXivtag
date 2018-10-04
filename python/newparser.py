@@ -34,10 +34,8 @@ def main():
     article_dic = dict(set(zip(keys, values)))
     print(article_dic.keys().__len__())
 
-
     dictname = "../Data/dict/full_articleset.p"
     pickle.dump(article_dic, open(dictname, "wb"))
-
 
 
 if __name__ == "__main__":
