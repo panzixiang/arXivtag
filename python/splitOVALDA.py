@@ -59,7 +59,7 @@ def main():
 
         # generate LDA model
         # number of topics is logarithmic
-        num_topics = math.floor(math.log2(topic_set))
+        num_topics = math.floor(math.log2(len(topic_set)))
         print(str(i) + ' ' + "number of topics: " + str(num_topics))
         num_topics_list.append(num_topics)
         ldamodel = gensim.models.ldamodel.LdaModel(corpus, num_topics=num_topics, id2word=dictionary, passes=20)

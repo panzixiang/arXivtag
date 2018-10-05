@@ -18,6 +18,7 @@ def harvest_routine(year):
     time.sleep(60)
 
 
+# harvests 1 year worth of arXiv articles
 def harvest_by_year(year):
     save_path = "../Data/raw"
     filename = "arXiv" + str(year) + ".xml"
