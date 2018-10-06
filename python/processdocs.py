@@ -55,7 +55,7 @@ def main():
 def dictload(year):
     save_path = "../Data/dict"
     filename = str(year) + "_big_pop.p"
-    filename = os.path.join(save_path, filename)
+    filename =  (save_path, filename)
 
     # load pickle
     return pickle.load(open(filename, "rb"))

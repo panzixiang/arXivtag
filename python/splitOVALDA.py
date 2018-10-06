@@ -9,6 +9,7 @@ from nltk.tokenize import RegexpTokenizer
 from nltk.corpus import stopwords
 from nltk.stem.porter import PorterStemmer
 from gensim import corpora
+from gensim.models.coherencemodel import CoherenceModel
 from sklearn import svm
 from sklearn.metrics import accuracy_score
 from sklearn.tree import DecisionTreeClassifier
@@ -21,6 +22,34 @@ from datetime import datetime
 
 def main():
 
+    '''
+    intermediate_path = "../Data/Intermediate/"
+
+    print("start ---------------------------------------------------")
+    training_array = pickle.load(open(os.path.join(intermediate_path + 'train_array.p'), "rb"))
+    test_array = pickle.load(open(os.path.join(intermediate_path + 'test_array.p'), "rb"))
+    label_set = pickle.load(open(os.path.join(intermediate_path + 'label_set.p'), "rb"))
+
+    test_label = [1]*144 + [2]*145 + [3]*125 + [4]*113 + [5]*257 + \
+        [6]*134 + [7]*13 + [8]*6 + [9]*45 + [10]*17
+
+    x_train, x_test, y_train, y_test = training_array, test_array, label_set, test_label
+    print("training_array length: " + str(len(training_array)))
+    print("test_array length: " + str(len(test_array)))
+    print("training_label length: " + str(len(label_set)))
+    print("test_label length: " + str(len(test_label)))
+    print("---------------------------------------------------------")
+
+    print("model building ------------------------------------------")
+    # choose model via a list
+    model_names = ["knn3"]
+    buildmodel(model_names, x_train, y_train, x_test, y_test)
+    '''
+
+    build_array()
+
+
+def build_array():
     start = time.time()
     print("start ---------------------------------------------------")
 
@@ -59,12 +88,28 @@ def main():
 
         # generate LDA model
         # number of topics is logarithmic
-        num_topics = math.floor(math.log2(len(topic_set)))
+        # num_topics = math.floor(math.log2(len(topic_set)))
+        # number of topics is modified logarithmic
+        # 15*rounded(log_2())-140
+        num_topics = 15*(round(math.log2(len(topic_set))))-140
+        # num_topics = math.floor(len(topic_set)/1000)
         print(str(i) + ' ' + "number of topics: " + str(num_topics))
         num_topics_list.append(num_topics)
         ldamodel = gensim.models.ldamodel.LdaModel(corpus, num_topics=num_topics, id2word=dictionary, passes=20)
         lda_superset.append(ldamodel)
         i += 1
+        # print lda topics
+        print(ldamodel.print_topics())
+
+        # Compute Perplexity
+        print('\nPerplexity: ',
+              ldamodel.log_perplexity(corpus))  # a measure of how good the model is. lower the better.
+
+        # Compute Coherence Score
+        coherence_model_lda = CoherenceModel(model=ldamodel, texts=topic_texts, dictionary=dictionary,
+                                             coherence='c_v')
+        coherence_lda = coherence_model_lda.get_coherence()
+        print('\nCoherence Score: ', coherence_lda)
 
     print("all LDA built")
 
@@ -98,10 +143,10 @@ def main():
     test_set = test_year['astro'][0:144] + test_year['cond'][0:145] + \
         test_year['cs'][0:125] + test_year['hep'][0:113] + \
         test_year['math'][0:257] + test_year['physics'][0:134] + \
-        test_year['qbio'][0:13] + test_year['qfin'][0:6] + \
+        test_year['qbio'][0:13] + test_year['qfin'][0:7] + \
         test_year['quant'][0:45] + test_year['stat'][0:17]
     test_label = [1]*144 + [2]*145 + [3]*125 + [4]*113 + [5]*257 + \
-        [6]*134 + [7]*13 + [8]*6 + [9]*45 + [10]*17
+        [6]*134 + [7]*13 + [8]*7 + [9]*45 + [10]*17
 
     test_texts = tokenize(test_set)
 
@@ -125,7 +170,7 @@ def main():
         if i != 0:
             test_array = np.concatenate((test_array, test_prop_array_superset[i]), axis=1)
 
-    arraydump('log2_topics_', training_array, test_array)
+    arraydump('modifiedlog_', training_array, test_array)
 
     x_train, x_test, y_train, y_test = training_array, test_array, label_set, test_label
 
@@ -161,8 +206,11 @@ def tokenize(doc_set):
         raw = doc[2].lower()
         tokens = tokenizer.tokenize(raw)
 
+        # remove pure numbers (and negative numbers) from tokens
+        no_digits = [i for i in tokens if not (i.isdigit() or i[0] == '-' and i[1:].isdigit())]
+
         # remove stop words from tokens
-        stopped_tokens = [i for i in tokens if i not in en_stop]
+        stopped_tokens = [i for i in no_digits if i not in en_stop]
 
         # stem tokens
         stemmed_tokens = [p_stemmer.stem(i) for i in stopped_tokens]
@@ -182,15 +230,15 @@ def dictload(year):
     return pickle.load(open(filename, "rb"))
 
 
-def arraydump(suffix, training_array, test_array):
+def arraydump(prefix, training_array, test_array):
     intermediate_path = "../Data/Intermediate/"
-    pickle.dump(training_array, open(intermediate_path + suffix + 'train_array.p', "wb"), protocol=4)
-    pickle.dump(test_array, open(intermediate_path + suffix + 'test_array.p', "wb"), protocol=4)
+    pickle.dump(training_array, open(intermediate_path + prefix + 'train_array.p', "wb"), protocol=4)
+    pickle.dump(test_array, open(intermediate_path + prefix + 'test_array.p', "wb"), protocol=4)
 
 
 def buildmodel(model_names, x_train, y_train, x_test, y_test):
     now = datetime.now().strftime('%Y%m%d-%H%M%S')
-    save_path = "../Results/" + now
+    save_path = "../Results/" + now + '-'
     if "knn3" in model_names:
         # knn3
         knn3 = KNeighborsClassifier(n_neighbors=3)
